@@ -47,9 +47,7 @@ if __name__ == '__main__':
             try:
                 await commands[command](message)
             except Exception as e:
-                usage_embed = discord.Embed(colour=discord.Colour.red(),
-                                            title=f"Command Usage for '{command}':",
-                                            description=usages.get(command, 'NO-USAGE-IMPL'))
+                usage_embed = txtcmds.get_usage_embed(command)
                 await message.channel.send(embed=usage_embed)
                 print(f"----------------------------")
                 print(f"Error executing command: {command}")
