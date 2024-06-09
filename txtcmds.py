@@ -1,18 +1,26 @@
 import os
-
-import mcfetch
-
 import dat
 import discord
-
+import mcfetch
 import requests
 
+from collections import OrderedDict
+
 commands = {}
+usages = {}
+
+
+def sort_commands_dict():
+    global commands, usages
+    commands = OrderedDict(sorted(commands.items()))
+    usages = OrderedDict(sorted(usages.items()))
 
 
 def txtcmd(command_name):
     def decorator(func):
         commands[command_name] = func
+        usages[command_name] = func.__doc__
+        sort_commands_dict()
         return func
 
     return decorator
@@ -20,11 +28,15 @@ def txtcmd(command_name):
 
 @txtcmd("ping")
 async def ping(message: discord.Message):
+    """Usage: `.ping`
+    Responds with 'pong'."""
     await message.channel.send("pong")
 
 
 @txtcmd("testkey")
 async def test_key(message: discord.Message):
+    """Usage: `.testkey`
+    Tests the API key and returns status and rate limit."""
     key = os.environ['API_KEY']
     url = "https://api.hypixel.net/v2/player?uuid=5328930e-d411-49cb-90ad-4e5c7b27dd86"
     req = requests.get(url, params={'API-Key': key})
@@ -36,9 +48,11 @@ async def test_key(message: discord.Message):
 
 @txtcmd("link")
 async def link_user(message: discord.Message):
+    """Usage: `.link <discordid> <uuid>`
+    Links a Minecraft account to a Discord user."""
     info = message.content.split(" ")
-    if len(info) != 3:  # The .link is still obviously in the message
-        await message.channel.send("Invalid arguments\nUsage: `.link <discordid> <uuid>`")
+    if len(info) != 3:
+        await message.channel.send(usages["link_user"])
         return
 
     member = message.guild.get_member(int(info[1]))
@@ -46,7 +60,7 @@ async def link_user(message: discord.Message):
         await message.channel.send("Unknown member")
         return
 
-    try :
+    try:
         if not mcfetch.is_valid_uuid(info[2]):
             await message.channel.send(f"Invalid UUID: `{info[2]}`")
             return
@@ -95,9 +109,18 @@ async def link_user(message: discord.Message):
 
 @txtcmd("getlink")
 async def get_link(message: discord.Message):
+    """Usage: `.getlink`
+    Retrieves the link information for the user."""
     link = dat.get_link(str(message.author.id))
     if link is None:
         await message.channel.send("You are not linked")
         return
 
     await message.channel.send("Link located")
+
+
+@txtcmd("rolestar")
+async def set_user_star_role_auto(message: discord.Message):
+    """Usage: `.rolestar <discordid>/<member mention>
+    Sets a user's star role."""
+    
