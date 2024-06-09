@@ -137,6 +137,9 @@ async def create_starroles(message: discord.Message):
     """Usage: `createstarroles`
     Creates all star roles.
     NOTE: **DANGEROUS COMMAND**"""
+    await message.channel.send("This command has been disabled")
+    return
+
     roles_to_be_created = []
     roles = []
     for star_role in dat.StarPrestiges[::-1]:  # Go backwards so higher star roles have higher priority
@@ -174,9 +177,6 @@ async def create_starroles(message: discord.Message):
 async def set_user_star_role_auto(message: discord.Message):
     """Usage: `.setrole <discordid>/<member mention> <roleid>/<prestige>`
     Sets a user's star role."""
-    await message.channel.send("This command has been disabled")
-    return
-    
     args = message.content.split(" ")
     if len(args) < 3:
         await message.channel.send(embed=get_usage_embed("setrole"))
