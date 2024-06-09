@@ -174,6 +174,9 @@ async def create_starroles(message: discord.Message):
 async def set_user_star_role_auto(message: discord.Message):
     """Usage: `.setrole <discordid>/<member mention> <roleid>/<prestige>`
     Sets a user's star role."""
+    await message.channel.send("This command has been disabled")
+    return
+    
     args = message.content.split(" ")
     if len(args) < 3:
         await message.channel.send(embed=get_usage_embed("setrole"))
