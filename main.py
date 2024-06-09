@@ -2,13 +2,17 @@ import os
 import discord
 import importlib
 import txtcmds
-from txtcmds import commands, txtcmd
+
+
+commands = txtcmds.commands
+usages = txtcmds.usages
 
 
 def reload_commands():
-    global commands
+    global commands, usages
     importlib.reload(txtcmds)
     commands = txtcmds.commands
+    usages = txtcmds.usages
 
 
 if __name__ == '__main__':
@@ -43,10 +47,20 @@ if __name__ == '__main__':
             try:
                 await commands[command](message)
             except Exception as e:
-                await message.channel.send("There was a problem with your request. Check logs for more information.")
-                print(e)
+                usage_embed = txtcmds.get_usage_embed(command)
+                await message.channel.send(embed=usage_embed)
+                print(f"----------------------------")
+                print(f"Error executing command: {command}")
+                print(f"Details: '{e}'")
+                print(f"----------------------------")
         else:
             await message.channel.send("Command not found.")
+            commands_embed = discord.Embed(colour=discord.Colour.blurple(),
+                                           title="Commands",
+                                           description="Text command prefix: `.`")
+            for command in commands:
+                commands_embed.add_field(name=command, value=usages.get(command, 'NO-USAGE-IMPL'), inline=False)
+            await message.channel.send(embed=commands_embed)
 
 
     client.run(token)
