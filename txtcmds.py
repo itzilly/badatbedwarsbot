@@ -3,7 +3,6 @@ import re
 
 import dat
 
-import asyncio
 import discord
 import mcfetch
 import requests
@@ -41,9 +40,13 @@ async def ping(message: discord.Message):
     """Usage: `.ping`
     Responds with 'pong'."""
     await message.channel.send("pong")
-    print()
-    print("pong")
-    print()
+
+
+@txtcmd("bedwars")
+async def bedwars(message: discord.Message):
+    """Usage: `.bedwars`
+    Responds with ur mother."""
+    await message.channel.send("bedwars stats")
 
 
 @txtcmd("testkey")
@@ -62,7 +65,9 @@ async def test_key(message: discord.Message):
 @txtcmd("link")
 async def link_user(message: discord.Message):
     """Usage: `.link <discordid> <uuid>`
-    Links a Minecraft account to a Discord user."""
+    Links a Minecraft account to a Discord user.
+    `<discordid> is the Discord user ID.`
+    `<uuid> is the Minecraft UUID`"""
     info = message.content.split(" ")
     if len(info) != 3:
         await message.channel.send(usages["link_user"])
@@ -176,7 +181,11 @@ async def create_starroles(message: discord.Message):
 @txtcmd("setrole")
 async def set_user_star_role_auto(message: discord.Message):
     """Usage: `.setrole <discordid>/<member mention> <roleid>/<prestige>`
-    Sets a user's star role."""
+    Sets a user's star role.
+    `<discordid> is the Discord user ID`
+    `<member mention> is @user`
+    `<roleid> is the Role's ID'`
+    `<prestige> is the star count of the player`"""
     args = message.content.split(" ")
     if len(args) < 3:
         await message.channel.send(embed=get_usage_embed("setrole"))
