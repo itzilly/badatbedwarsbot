@@ -290,3 +290,24 @@ async def set_user_star_role_auto(message: discord.Message):
         print(e)
         print("---------------------------------------")
     await message.channel.send(f"An error has occurred, please check logs for more information")
+
+
+@txtcmd("join")
+async def join_audio_channel(message: discord.Message):
+    """Join a voice channel
+    You must be in a voice channel to use this command."""
+    author = message.author
+    audio_channel = message.author.voice.channel
+    await audio_channel.connect()
+
+
+# @txtcmd("dc")
+# async def leave_audio_channel(message: discord.Message):
+#     """Disconnects from voice channel"""
+#     author = message.author
+#     audio_channel = message.author.voice.channel
+#     if audio_channel is None:
+#         await message.channel.send("Please join an audio channel first!")
+#         return
+#
+#     await audio_channel.d
