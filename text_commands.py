@@ -234,6 +234,66 @@ class TextCommands(commands.Cog):
                 print("---------------------------------------")
             await message.channel.send(f"An error has occurred, please check logs for more information")
 
+        @bot.command("join")
+        async def connect_voice(ctx: commands.Context):
+            logging.debug(f"Executing 'join' Command: {ctx.author.name}")
+            if ctx.author.voice is None:
+                await ctx.send("You are not connected to a voice channel!")
+                return
+
+            try:
+                await ctx.author.voice.channel.connect(self_deaf=True)
+            except discord.errors.ClientException as e:
+                if str(e) == "Already connected to a voice channel.":
+                    await ctx.send("I'm already connected to a voice channel!")
+            except Exception as e:
+                error_id = uuid.uuid4()
+                await ctx.send(f"An error has occurred! Please check logs for more information: {error_id}")
+
+        @bot.command("dc")
+        async def disconnect_voice(ctx: commands.Context):
+            # TODO: Make this command disconnect the bot if it's in ANY voice channel
+            # Right now it only dc's if the user who sends the command is in the same  channel
+            logging.debug(f"Executing 'dc' Command: {ctx.author.name}")
+            for x in bot.voice_clients:
+                if x.channel == ctx.author.voice.channel:
+                    return await x.disconnect(force=True)
+
+        @bot.command("play")
+        async def play_command(ctx: commands.Context):
+            logging.debug(f"Executing 'play' Command: {ctx.author.name}")
+
+            search_terms = ctx.message.content.replace(".play", "").strip()
+            if not search_terms:
+                await ctx.send("Oh no! You didn't specify a song! Please try again.")
+                return
+
+            yt_url, yt_title, audio_url = self.search(search_terms)
+            if yt_url is None:
+                await ctx.send("I couldn't find that song, please try again.")
+                return
+
+            response_message = await ctx.send(f"Looking up song - {yt_title}")
+
+            voice_channel = ctx.author.voice.channel
+            if voice_channel is None:
+                await ctx.send("You are not connected to a voice channel!")
+                return
+
+            voice_client = get(self.bot.voice_clients, guild=ctx.guild)
+            if voice_client is None:
+                voice_client = await voice_channel.connect()
+
+            ffmpeg_opts = {
+                'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+                'options': '-vn'
+            }
+
+            voice_client.play(FFmpegPCMAudio(audio_url, **ffmpeg_opts),
+                              after=lambda e: logging.error(f'Player error: {e}') if e else None)
+
+            await response_message.edit(content=f"Now playing: {yt_title}")
+
         @bot.command("reload")
         @has_permissions(administrator=True)
         async def reload_commands(ctx: commands.Context):
@@ -267,7 +327,6 @@ class TextCommands(commands.Cog):
 
             await ctx.send(embed=commands_embed)
 
-
     @commands.Cog.listener()
     async def on_ready(self):
         print(f"Cog {self.__class__.__name__} is ready.")
@@ -279,6 +338,24 @@ class TextCommands(commands.Cog):
         return discord.Embed(colour=discord.Colour.red(),
                              title=f"Command Usage for '{command_name}':",
                              description=usage)
+
+    def search(self, query):
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'no_warnings': True,
+            'noplaylist': True
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            search_results = ydl.extract_info(f"ytsearch:{query}", download=False)
+            if 'entries' in search_results and len(search_results['entries']) > 0:
+                video = search_results['entries'][0]
+                audio_info = ydl.extract_info(video['url'], download=False)
+                audio_url = audio_info['url']
+                return video['url'], video['title'], audio_url
+            else:
+                return None, None, None
 
 
 async def setup(bot):
