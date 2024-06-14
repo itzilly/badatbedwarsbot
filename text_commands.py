@@ -1,6 +1,4 @@
 import re
-from collections.abc import Coroutine
-from typing import Callable, Any
 
 import dat
 import uuid
@@ -9,11 +7,11 @@ import discord
 import logging
 import mcfetch
 
-from discord.utils import get
 from discord.ext import commands
-from discord import FFmpegPCMAudio
+from typing import Callable, Any
 from audio_handler import AudioHandler
-
+from collections.abc import Coroutine
+from errors import PlayerAlreadyRegisteredError
 from discord.ext.commands import has_permissions
 
 
@@ -262,37 +260,67 @@ class TextCommands(commands.Cog):
         @bot.command("play")
         async def play_command(ctx: commands.Context):
             logging.debug(f"Executing 'play' Command: {ctx.author.name}")
+            audio_channel = ctx.author.voice.channel
+            if audio_channel is None:
+                await ctx.send("You are not connected to a voice channel!")
+                return
+
+            try:
+                stream_connection = await audio_channel.connect(reconnect=True)
+                self.AudioHandler.get_server_details(ctx.guild.id).voice_channel = stream_connection
+            except Exception as e:
+                pass
+
+            try:
+                self.AudioHandler.register_player_by_context(ctx)
+            except PlayerAlreadyRegisteredError as e:
+                await ctx.send(f"Failed to register player: {e}")
 
             search_terms = ctx.message.content.replace(".play", "").strip()
+            if not search_terms:
+                await ctx.send(f"Now playing...")
+                await self.AudioHandler.play_by_context(ctx)
+                return
+
+            self.AudioHandler.add_to_queue_by_context(ctx, search_terms)
+            await self.AudioHandler.play_by_context(ctx)
+
+        @bot.command("pause")
+        async def pause_command(ctx: commands.Context):
+            logging.debug(f"Executing 'pause' Command: {ctx.author.name}")
+            self.AudioHandler.pause_by_context(ctx)
+
+        @bot.command("resume")
+        async def resume_command(ctx: commands.Context):
+            logging.debug(f"Executing 'resume' Command: {ctx.author.name}")
+            self.AudioHandler.resume_by_context(ctx)
+
+        @bot.command("add")
+        async def add_song_to_queue(ctx: commands.Context):
+            logging.debug(f"Executing 'add' Command: {ctx.author.name}")
+            search_terms = ctx.message.content.replace(".add", "").strip()
             if not search_terms:
                 await ctx.send("Oh no! You didn't specify a song! Please try again.")
                 return
 
-            yt_url, yt_title, audio_url = self.search(search_terms)
-            if yt_url is None:
-                await ctx.send("I couldn't find that song, please try again.")
+            success = self.AudioHandler.add_to_queue_by_context(ctx, search_terms)
+            if success:
+                await ctx.send(f"Added {search_terms} to queue.")
                 return
+            else:
+                await ctx.send(f"Failed to add {search_terms} to queue.")
 
-            response_message = await ctx.send(f"Looking up song - {yt_title}")
+        @bot.command("registerplayer")
+        async def register_player(ctx: commands.Context):
+            try:
+                self.AudioHandler.register_player_by_context(ctx)
+                await ctx.send(f"Registered player: {ctx.guild.id}")
+            except PlayerAlreadyRegisteredError as e:
+                await ctx.send(f"Failed to register player: {e}")
 
-            voice_channel = ctx.author.voice.channel
-            if voice_channel is None:
-                await ctx.send("You are not connected to a voice channel!")
-                return
-
-            voice_client = get(self.bot.voice_clients, guild=ctx.guild)
-            if voice_client is None:
-                voice_client = await voice_channel.connect()
-
-            ffmpeg_opts = {
-                'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-                'options': '-vn'
-            }
-
-            voice_client.play(FFmpegPCMAudio(audio_url, **ffmpeg_opts),
-                              after=lambda e: logging.error(f'Player error: {e}') if e else None)
-
-            await response_message.edit(content=f"Now playing: {yt_title}")
+        @bot.command("rp")
+        async def register_player_alias(ctx: commands.Context):
+            await register_player(ctx)
 
         @bot.command("reload")
         @has_permissions(administrator=True)
@@ -356,6 +384,14 @@ class TextCommands(commands.Cog):
                 return video['url'], video['title'], audio_url
             else:
                 return None, None, None
+
+    def after_playing(self, e: Exception):
+        if e:
+            logging.error(e)
+
+        self.AudioHandler._is_playing = False
+        self.AudioHandler.current_has_finished = True
+        self.AudioHandler.play_next()
 
 
 async def setup(bot):
