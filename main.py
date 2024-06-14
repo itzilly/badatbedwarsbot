@@ -1,66 +1,59 @@
 import os
+import asyncio
+import logging
+from typing import Optional
+
 import discord
-import importlib
-import txtcmds
+import traceback
+
+from discord.ext import commands
+from discord.ext.commands import HelpCommand, MinimalHelpCommand
 
 
-commands = txtcmds.commands
-usages = txtcmds.usages
+class BadAtBedwarsBot(commands.Bot):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
+    async def on_ready(self):
+        logging.info(f"Logged in as {self.user}")
 
-def reload_commands():
-    global commands, usages
-    importlib.reload(txtcmds)
-    commands = txtcmds.commands
-    usages = txtcmds.usages
+    async def setup_hook(self):
+        try:
+            await self.load_extension('text_commands')
+        except Exception as e:
+            logging.error(f"Failed to load extension 'text_commands' extension: {e}")
+            traceback.print_exc()
+
+    async def help_command(self) -> Optional[HelpCommand]:
+        return MinimalHelpCommand()
+
+    async def on_command_error(self, ctx: commands.Context, error):
+        if isinstance(error, commands.CommandNotFound):
+            await ctx.send("Command not found!")
+
+        elif isinstance(error, commands.MissingPermissions):
+            await ctx.send("You must be administrator to run this command!")
+
+        else:
+            await ctx.send("An error has occurred!")
+            print(error)
+            traceback.print_exc()
+
+    # async def help_command(self) -> Optional[HelpCommand]:
+    #     help_command = HelpCommand()
+    #     help_command.
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
+
+    prefix = '.'
+    description = "Bad at Bedwars Discord Bot"
+
+    bot = BadAtBedwarsBot(command_prefix=prefix, description=description, intents=discord.Intents.all())
     token = os.environ['TOKEN']
-    intents = discord.Intents.all()
-    client = discord.Client(intents=intents)
+    if token is None:
+        logging.error("No token found! Aborting start")
+        exit(401)
 
-
-    @client.event
-    async def on_ready():
-        print(f"Logged in as {client.user}")
-
-
-    @client.event
-    async def on_message(message: discord.Message):
-        if not message.content.startswith("."):
-            return
-
-        if not message.author.guild_permissions.administrator:
-            return
-
-        content = message.content[1:]
-        command, *args = content.split()
-        if command == "reload":
-            try:
-                reload_commands()
-                await message.channel.send("Commands reloaded successfully.")
-            except Exception as e:
-                await message.channel.send("Failed to reload commands. Check logs for more information.")
-                print(e)
-        elif command in commands:
-            try:
-                await commands[command](message)
-            except Exception as e:
-                usage_embed = txtcmds.get_usage_embed(command)
-                await message.channel.send(embed=usage_embed)
-                print(f"----------------------------")
-                print(f"Error executing command: {command}")
-                print(f"Details: '{e}'")
-                print(f"----------------------------")
-        else:
-            await message.channel.send("Command not found.")
-            commands_embed = discord.Embed(colour=discord.Colour.blurple(),
-                                           title="Commands",
-                                           description="Text command prefix: `.`")
-            for command in commands:
-                commands_embed.add_field(name=command, value=usages.get(command, 'NO-USAGE-IMPL'), inline=False)
-            await message.channel.send(embed=commands_embed)
-
-
-    client.run(token)
+    asyncio.run(bot.start(token))
