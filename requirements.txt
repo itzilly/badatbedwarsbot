@@ -1,4 +1,5 @@
+mcfetch~=2.1.0
+colorama~=0.4.6
+requests~=2.32.3
+yt-dlp~=2024.5.27
 discord.py[voice]~=2.3.2
-requests
-mcfetch
-yt-dlp
